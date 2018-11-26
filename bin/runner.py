@@ -6,9 +6,13 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 from plots import draw_corr_heatmap
 import seaborn as sns
+import xgboost as xgb
+import pickle
+from logger import Logger
 
 # Varaibles
 train_rate = .85
+model_name = 'xgboost-test2'
 
 np.random.seed(0)
 
@@ -44,15 +48,51 @@ def get_X_y(data):
 
   return X, y
 
+def get_accuracy(y_pred, y_test):
+  length = len(y_pred)
+  _sum = 0
+  for idx in range(length):
+    _sum += abs((y_test[idx] - y_pred[idx]) / y_pred[idx])
+  return 1 - (_sum / length)
+  
+# Main
+logger = Logger('xgboost')
+
 X, y = get_X_y(data)
-print(X.iloc[0])
-print(y[0])
+X_names = list(X)
 
 # Create Train & test data
-# train_indexes = np.random.rand(len(data)) <= 0.85
+train_indexes = np.random.rand(len(X)) <= 0.85
 
-# X_train = data[names[:-1]][train_indexes]
-# X_test = data[names[:-1]][~train_indexes]
-# y_train = data[names[-1]][train_indexes]
-# y_test = data[names[-1]][~train_indexes]
+X_train = X[train_indexes]
+X_test = X[~train_indexes]
+y_train = y[train_indexes]
+y_test = y[~train_indexes]
+# print(X_train.shape)
+# print(y_train.shape)
 
+def train():
+  model = xgb.XGBRegressor(n_estimators=200, learning_rate=0.08, gamma=0, subsample=0.75,
+                            colsample_bytree=1, max_depth=7)
+  model.fit(X_train, y_train)
+  pickle.dump(model, open(f"../models/{model_name}.dat", "wb"))
+
+def test():
+  model = pickle.load(open(f"../models/{model_name}.dat", "rb"))
+  y_pred = model.predict(X_test)
+  # print(get_accuracy(y_pred, y_test.iloc))
+
+def print_importances(names):
+  model = pickle.load(open(f"../models/{model_name}.dat", "rb"))
+  importances = model.feature_importances_
+  arg_indexes = np.flip(np.argsort(importances))
+  for idx in arg_indexes:
+    logger.write("%20s: %.4f" % (names[idx], importances[idx]))
+
+# importance = xgb.importance()
+
+
+# train()
+# test()
+print_importances(names)
+# print_importances(X_names)
