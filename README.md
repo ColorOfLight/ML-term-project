@@ -13,5 +13,6 @@ KAIST CS376 Term Project (Fall 2018)
 4. Run code
 
 ```
-(root-path) $ python bin/runner.py 
+(root-path) $ cd bin
+(/bin) $ python runner.py 
 ```
