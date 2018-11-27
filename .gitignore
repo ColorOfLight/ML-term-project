@@ -107,4 +107,4 @@ venv.bak/
 data/*
 
 !/.env
-logs/*
+logs/*.log
