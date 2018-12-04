@@ -25,11 +25,11 @@ names = ['contract date', 'latitude', 'longtitude', 'altitude', '1st region id',
 
 tuned_parameters = {
   'n_estimators': [100, 200, 400, 800],
-  'learning_rate': [0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.1, 0.2, 0.4, 0.8],
-  'gamma': [0, 0.5, 1, 1.5, 2, 5],
+  'learning_rate': [0.01, 0.04, 0.08, 0.1, 0.2, 0.4],
+  'gamma': [0, 0.5, 1, 2, 5],
   'subsample': [0.5, 0.66, 0.75],
   'colsample_bytree': [0.6, 0.8, 1],
-  'max_depth': [3, 4, 5, 6, 7, 8]
+  'max_depth': [5, 6, 7, 8]
 }
 
 data = pd.read_csv('../data/data_train.csv',
@@ -97,7 +97,7 @@ def print_cross_val():
 
   # print(cross_val_score(model, X, y, scoring=acc_scorer, cv=5, n_jobs=-1))
   model = GridSearchCV(model, tuned_parameters, cv=5,
-                     scoring=acc_scorer)
+                     scoring=acc_scorer, n_jobs=-1, verbose=10)
   model.fit(X, y)
 
   logger.write("Best params:")
