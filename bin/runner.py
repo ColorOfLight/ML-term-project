@@ -24,12 +24,12 @@ names = ['contract date', 'latitude', 'longtitude', 'altitude', '1st region id',
          'schools', 'bus stations', 'subway stations', 'price']
 
 tuned_parameters = {
-  'n_estimators': [100, 200, 400, 800],
-  'learning_rate': [0.01, 0.04, 0.08, 0.1, 0.2, 0.4],
-  'gamma': [0, 0.5, 1, 2, 5],
+  'n_estimators': [100, 200, 400],
+  'learning_rate': [0.02, 0.04, 0.08, 0.1, 0.4],
+  'gamma': [0, 1, 2],
   'subsample': [0.5, 0.66, 0.75],
   'colsample_bytree': [0.6, 0.8, 1],
-  'max_depth': [5, 6, 7, 8]
+  'max_depth': [6, 7, 8]
 }
 
 data = pd.read_csv('../data/data_train.csv',
