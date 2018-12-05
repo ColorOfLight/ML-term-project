@@ -14,7 +14,7 @@ from logger import Logger
 
 # Varaibles
 train_rate = .8
-model_name = 'xgboost-normalize-test3'
+model_name = 'xgboost-normalize-test3' # The model will saved in ../models/{model_name}.dat
 
 np.random.seed(0)
 
@@ -112,7 +112,13 @@ def print_cross_val():
 def test():
   model = pickle.load(open(f"../models/{model_name}.dat", "rb"))
   y_pred = model.predict(X_test)
-  print(get_accuracy(y_pred, y_test.iloc))
+
+  def acc_scorer(model, X, y):
+    y_pred = model.predict(X)
+    return get_accuracy(y_pred, y.iloc)
+
+  # print(get_accuracy(y_pred, y_test.iloc))
+  print(np.mean(cross_val_score(model, X, y, scoring=acc_scorer, cv=5, n_jobs=-1)))
 
 def print_importances(names):
   model = pickle.load(open(f"../models/{model_name}.dat", "rb"))
@@ -125,7 +131,7 @@ def print_importances(names):
 
 
 # train()
-# test()
+test()
 # print_importances(names)
 # print_importances(X_names)
-print_cross_val()
+# print_cross_val()
