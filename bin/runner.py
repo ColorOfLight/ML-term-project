@@ -139,7 +139,7 @@ def print_importances(names):
 
 
 # train()
-test()
+# test()
 # print_importances(names)
 # print_importances(X_names)
-# print_cross_val()
+print_cross_val()
