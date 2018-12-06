@@ -28,16 +28,16 @@ names = ['contract date', 'latitude', 'longtitude', 'altitude', '1st region id',
 
 tuned_parameters = {
   'n_estimators': [100, 200, 400],
-  # 'learning_rate': [0.02, 0.04, 0.08, 0.1, 0.4],
-  # 'gamma': [0, 1, 2],
-  # 'subsample': [0.5, 0.66, 0.75],
-  # 'colsample_bytree': [0.6, 0.8, 1],
-  # 'max_depth': [6, 7, 8]
-  'learning_rate': [0.02],
-  'gamma': [0],
-  'subsample': [0.5],
-  'colsample_bytree': [0.6],
-  'max_depth': [6]
+  'learning_rate': [0.02, 0.04, 0.08, 0.1, 0.4],
+  'gamma': [0, 1, 2],
+  'subsample': [0.5, 0.66, 0.75],
+  'colsample_bytree': [0.6, 0.8, 1],
+  'max_depth': [6, 7, 8]
+  # 'learning_rate': [0.02],
+  # 'gamma': [0],
+  # 'subsample': [0.5],
+  # 'colsample_bytree': [0.6],
+  # 'max_depth': [6]
 }
 
 data = pd.read_csv('../data/data_train.csv',
