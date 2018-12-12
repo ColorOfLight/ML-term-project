@@ -80,14 +80,6 @@ def get_accuracy(y_pred, y_test):
     _sum += abs((y_test[idx] - y_pred[idx]) / y_pred[idx])
   return 1 - (_sum / length)
 
-# Write Answer Sheet
-def write_answers(model_n, model_u):
-  data = pd.read_csv('../data/data_train.csv',
-                     names=[n for n in names if n is not 'price'])
-  data = fill_missing_values(data)
-  np.savetxt('../data/result_.csv', model_n.predict(data).reshape(-1,1))
-  np.savetxt('../data/result_unique.csv', model_u.predict(data).reshape(-1, 1))
-
 # Main
 logger = Logger('final')
 
@@ -95,13 +87,18 @@ data = pd.read_csv('../data/data_train.csv',
                    names=names)
 
 # Fill NaN
-def fill_missing_values(data):
+def fill_missing_values(data, is_test=False):
   new_data = data.drop(columns=non_numeric_names)
-  # imputer = Imputer(missing_values=np.nan, strategy='median', axis=0)
   imputer = SimpleImputer(missing_values=np.nan, strategy='median')
   imputer = imputer.fit(new_data)
   new_data = imputer.transform(new_data)
-  new_data = pd.DataFrame(new_data, columns=[n for n in names if n not in non_numeric_names])
+  if is_test:
+    columns = [n for n in names if n not in non_numeric_names]
+    columns.remove('price')
+    new_data = pd.DataFrame(
+        new_data, columns=columns)
+  else:
+    new_data = pd.DataFrame(new_data, columns=[n for n in names if n not in non_numeric_names])
   for n in non_numeric_names:
     new_data[n] = data[n]
   return new_data
@@ -124,9 +121,10 @@ def get_unique_model():
 
   return Ensemble(lst)
 
-model_n = xgb.XGBRegressor(n_estimators=200, learning_rate=0.02, gamma=0, subsample=0.75,
-                           colsample_bytree=1, max_depth=6)
-# model_n = Ilbeom_Linear()
+
+# model_n = xgb.XGBRegressor(n_estimators=200, learning_rate=0.02, gamma=0, subsample=0.75,
+#                            colsample_bytree=1, max_depth=6)
+model_n = ElasticNet(l1_ratio=0.95, alpha=0.15, max_iter=50000)
 model_u = get_unique_model()
 
 def test_cv(model, X, y, n_splits=5):
@@ -145,71 +143,22 @@ def test_cv(model, X, y, n_splits=5):
   
   print(f"result: {sum(results) / n_splits}")
 
+# Test each model
+
 # test_cv(model_n, preprocess(X), y)
-test_cv(model_u, X, y)
+# test_cv(model_u, X, y)
+
+# Write Answer Sheet
+def write_answers(model_n, model_u):
+  data = pd.read_csv('../data/data_test.csv',
+                     names=[n for n in names if n is not 'price'])
+  data = fill_missing_values(data, is_test=True)
+  np.savetxt('../data/result_.csv', model_n.predict(preprocess(data)).reshape(-1,1))
+  np.savetxt('../data/result_unique.csv', model_u.predict(data).reshape(-1, 1))
 
 
+# write answers
+model_n.fit(preprocess(X), y)
+model_u.fit(X, y)
 
-# def train():
-#   model1 = xgb.XGBRegressor(n_estimators=200, learning_rate=0.02, gamma=0, subsample=0.75,
-#                             colsample_bytree=1, max_depth=6)
-#   model2 = ElasticNet(l1_ratio=0.95, alpha=0.15, max_iter=50000)
-#   model3 = AdaBoostRegressor(
-#       learning_rate=0.01, loss='square', n_estimators=100)
-
-#   lst = [model1, model2, model3]
-
-#   model = Ensemble(lst)
-#   model.fit(X, y)
-#   pickle.dump(model, open(f"../models/{model_name}.dat", "wb"))
-
-
-def print_cross_val():
-  model = xgb.XGBRegressor()
-
-  def acc_scorer(model, X, y):
-    y_pred = model.predict(X)
-    return get_accuracy(y_pred, y.iloc)
-
-  # print(cross_val_score(model, X, y, scoring=acc_scorer, cv=5, n_jobs=-1))
-  model = GridSearchCV(model, tuned_parameters, cv=5,
-                       scoring=acc_scorer, n_jobs=-1, verbose=10)
-  model.fit(X, y)
-
-  logger.write("Best params:")
-  logger.write(model.best_params_)
-  logger.write("Grid scores:")
-  means = model.cv_results_['mean_test_score']
-  stds = model.cv_results_['std_test_score']
-  for mean, std, params in zip(means, stds, model.cv_results_['params']):
-      logger.write("%0.3f (+/-%0.03f) for %r"
-                   % (mean, std * 2, params))
-
-
-def test():
-  model = pickle.load(open(f"../models/{model_name}.dat", "rb"))
-  y_pred = model.predict(X_test)
-
-  def acc_scorer(model, X, y):
-    y_pred = model.predict(X)
-    return get_accuracy(y_pred, y.iloc)
-
-  # print(get_accuracy(y_pred, y_test.iloc))
-  print(np.mean(cross_val_score(model, X, y, scoring=acc_scorer, cv=5, n_jobs=-1)))
-
-
-def print_importances(names):
-  model = pickle.load(open(f"../models/{model_name}.dat", "rb"))
-  importances = model.feature_importances_
-  arg_indexes = np.flip(np.argsort(importances))
-  for idx in arg_indexes:
-    logger.write("%20s: %.4f" % (names[idx], importances[idx]))
-
-# importance = xgb.importance()
-
-
-# train()
-# test()
-# print_importances(names)
-# print_importances(X_names)
-# print_cross_val()
+write_answers(model_n, model_u)
