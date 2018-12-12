@@ -12,12 +12,16 @@ import xgboost as xgb
 import pickle
 from logger import Logger
 import os
+from sklearn.linear_model import ElasticNet
+from sklearn.ensemble import AdaBoostRegressor
+from ensemble import Ensemble
 
 os.environ["JOBLIB_TEMP_FOLDER"] = "/tmp"
 
 # Varaibles
 train_rate = .8
-model_name = 'xgboost-normalize-test3' # The model will saved in ../models/{model_name}.dat
+# The model will saved in ../models/{model_name}.dat
+model_name = 'ensemble-test1'
 
 np.random.seed(0)
 
@@ -27,28 +31,31 @@ names = ['contract date', 'latitude', 'longtitude', 'altitude', '1st region id',
          'schools', 'bus stations', 'subway stations', 'price']
 
 tuned_parameters = {
-  'n_estimators': [100, 200, 400],
-  'learning_rate': [0.02, 0.04, 0.08, 0.1, 0.4],
-  'gamma': [0, 1, 2],
-  'subsample': [0.5, 0.66, 0.75],
-  'colsample_bytree': [0.6, 0.8, 1],
-  'max_depth': [6, 7, 8]
-  # 'learning_rate': [0.02],
-  # 'gamma': [0],
-  # 'subsample': [0.5],
-  # 'colsample_bytree': [0.6],
-  # 'max_depth': [6]
+    'n_estimators': [100, 200, 400],
+    'learning_rate': [0.02, 0.04, 0.08, 0.1, 0.4],
+    'gamma': [0, 1, 2],
+    'subsample': [0.5, 0.66, 0.75],
+    'colsample_bytree': [0.6, 0.8, 1],
+    'max_depth': [6, 7, 8]
+    # 'learning_rate': [0.02],
+    # 'gamma': [0],
+    # 'subsample': [0.5],
+    # 'colsample_bytree': [0.6],
+    # 'max_depth': [6]
 }
 
 data = pd.read_csv('../data/data_train.csv',
                    names=names)
 
+
 def get_X_y(data):
   data['angle'] = np.sin(data['angle'])
 
   data['contract date'] = pd.to_datetime(data['contract date'])
-  data['completion date'] = pd.to_numeric(data['contract date'] - pd.to_datetime(data['completion date']))
-  data['contract date'] = pd.to_numeric(data['contract date'] - data['contract date'].min())
+  data['completion date'] = pd.to_numeric(
+      data['contract date'] - pd.to_datetime(data['completion date']))
+  data['contract date'] = pd.to_numeric(
+      data['contract date'] - data['contract date'].min())
 
   drop_columns = ['1st region id', '2nd region id',
                   'road id', 'apartment id', 'builder id', 'built year']
@@ -67,15 +74,17 @@ def get_X_y(data):
 
   return X, y
 
+
 def get_accuracy(y_pred, y_test):
   length = len(y_pred)
   _sum = 0
   for idx in range(length):
     _sum += abs((y_test[idx] - y_pred[idx]) / y_pred[idx])
   return 1 - (_sum / length)
-  
+
+
 # Main
-logger = Logger('xgboost-grid-search')
+logger = Logger('ensemble-test1')
 
 X, y = get_X_y(data)
 X_names = list(X)
@@ -90,11 +99,20 @@ y_test = y[~train_indexes]
 # print(X_train.shape)
 # print(y_train.shape)
 
+
 def train():
-  model = xgb.XGBRegressor(n_estimators=200, learning_rate=0.08, gamma=0, subsample=0.75,
-                            colsample_bytree=1, max_depth=7)
+  model1 = xgb.XGBRegressor(n_estimators=200, learning_rate=0.02, gamma=0, subsample=0.75,
+                            colsample_bytree=1, max_depth=6)
+  model2 = ElasticNet(l1_ratio=0.95, alpha=0.15, max_iter=50000)
+  model3 = AdaBoostRegressor(
+      learning_rate=0.01, loss='square', n_estimators=100)
+
+  lst = [model1, model2, model3]
+
+  model = Ensemble(lst)
   model.fit(X_train, y_train)
   pickle.dump(model, open(f"../models/{model_name}.dat", "wb"))
+
 
 def print_cross_val():
   model = xgb.XGBRegressor()
@@ -105,7 +123,7 @@ def print_cross_val():
 
   # print(cross_val_score(model, X, y, scoring=acc_scorer, cv=5, n_jobs=-1))
   model = GridSearchCV(model, tuned_parameters, cv=5,
-                     scoring=acc_scorer, n_jobs=-1, verbose=10)
+                       scoring=acc_scorer, n_jobs=-1, verbose=10)
   model.fit(X, y)
 
   logger.write("Best params:")
@@ -115,7 +133,8 @@ def print_cross_val():
   stds = model.cv_results_['std_test_score']
   for mean, std, params in zip(means, stds, model.cv_results_['params']):
       logger.write("%0.3f (+/-%0.03f) for %r"
-            % (mean, std * 2, params))
+                   % (mean, std * 2, params))
+
 
 def test():
   model = pickle.load(open(f"../models/{model_name}.dat", "rb"))
@@ -128,6 +147,7 @@ def test():
   # print(get_accuracy(y_pred, y_test.iloc))
   print(np.mean(cross_val_score(model, X, y, scoring=acc_scorer, cv=5, n_jobs=-1)))
 
+
 def print_importances(names):
   model = pickle.load(open(f"../models/{model_name}.dat", "rb"))
   importances = model.feature_importances_
@@ -138,8 +158,8 @@ def print_importances(names):
 # importance = xgb.importance()
 
 
-# train()
-# test()
+train()
+test()
 # print_importances(names)
 # print_importances(X_names)
-print_cross_val()
+#print_cross_val()
