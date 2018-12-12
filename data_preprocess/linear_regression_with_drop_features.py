@@ -27,6 +27,7 @@ class Linear_Regression_with_drop_features(object):
         data['contract date'] = pd.to_datetime(data['contract date'])
         data['contract date'] = pd.to_numeric(data['contract date'] - data['contract date'].min())
         data['contract date'] = data['contract date']/data['contract date'].max()
+        
         data['angle'] = np.sin(data['angle'])
         datalist=[data[data.apartment_id==i] for i in set(data['apartment_id'])]
         newlist = []
@@ -42,8 +43,6 @@ class Linear_Regression_with_drop_features(object):
 
         def get_pure_apartment_price(data,n):
             datalist=[data[data.apartment_id==i] for i in set(data['apartment_id'])]
-            lengthlist = [len(i['angle']) for i in datalist]
-            #idlist = [i['apatment_id'].iloc[0] for i in datalist]
             Xylist = [get_X_y(data) for data in datalist]
             model_list = [LinearRegression() for i in range(len(Xylist))]
             for i in range(len(model_list)):
@@ -63,7 +62,7 @@ class Linear_Regression_with_drop_features(object):
                 coeffiecient = total_model.coef_
                 data['apartment_price'] = data['price']-data.drop(columns=['apartment_price','pure_price','price', 'apartment_id']).dot(coeffiecient)
                 datalist=[data[data.apartment_id==i] for i in set(data['apartment_id'])]    
-                med_list = [[np.median(datalist[i])]*len(datalist[i]['apartment_price']) for i in range(len(datalist))]
+                med_list = [[np.median(datalist[i]['apartment_price'])]*len(datalist[i]['apartment_price']) for i in range(len(datalist))]
                 l=[]
                 for i in med_list:
                     l.extend(i)
@@ -72,7 +71,7 @@ class Linear_Regression_with_drop_features(object):
             return data
         
         
-        N = 2
+        N = 15
         data = get_pure_apartment_price(data,N)
         apartment_map=dict()
         for i in data['apartment_id']:
@@ -117,7 +116,7 @@ class Linear_Regression_with_drop_features(object):
         data['contract date'] = pd.to_datetime(data['contract date'])
         data['contract date'] = pd.to_numeric(data['contract date'] - data['contract date'].min())
         data['contract date'] = data['contract date']/data['contract date'].max()
-        data['angle'] = np.sin(data['angle'])
+        data['angle'] = np.sin(data['angle']) 
         data = data.assign(apartment_price=data['angle'])
         X = preprocess_test_data(data, apartment_map)
         X = X.drop(columns = ['apartment_id'])
@@ -134,7 +133,7 @@ def test():
     data = pd.read_csv('./data_train_original.csv', names=names)
     y = data['price']
     X = data.drop(columns =['price'])
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 110)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 111)
     model = Linear_Regression_with_drop_features()
     model.fit(X_train,y_train)
     predictions = model.predict(X_test)
