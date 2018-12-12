@@ -11,6 +11,9 @@ import seaborn as sns
 import xgboost as xgb
 import pickle
 from logger import Logger
+import os
+
+os.environ["JOBLIB_TEMP_FOLDER"] = "/tmp"
 
 # Varaibles
 train_rate = .8
@@ -30,6 +33,11 @@ tuned_parameters = {
   'subsample': [0.5, 0.66, 0.75],
   'colsample_bytree': [0.6, 0.8, 1],
   'max_depth': [6, 7, 8]
+  # 'learning_rate': [0.02],
+  # 'gamma': [0],
+  # 'subsample': [0.5],
+  # 'colsample_bytree': [0.6],
+  # 'max_depth': [6]
 }
 
 data = pd.read_csv('../data/data_train.csv',
@@ -131,7 +139,7 @@ def print_importances(names):
 
 
 # train()
-test()
+# test()
 # print_importances(names)
 # print_importances(X_names)
-# print_cross_val()
+print_cross_val()
