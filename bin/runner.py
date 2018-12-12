@@ -15,6 +15,9 @@ import os
 from sklearn.linear_model import ElasticNet
 from sklearn.ensemble import AdaBoostRegressor
 from ensemble import Ensemble
+from sklearn.impute import SimpleImputer
+from ilbeom_lg_v2 import Ilbeom_Linear
+from sklearn.model_selection import StratifiedKFold
 
 os.environ["JOBLIB_TEMP_FOLDER"] = "/tmp"
 
@@ -26,9 +29,10 @@ model_name = 'ensemble-test1'
 np.random.seed(0)
 
 names = ['contract date', 'latitude', 'longtitude', 'altitude', '1st region id', '2nd region id', 'road id',
-         'apartment id', 'floor', 'angle', 'area', 'parking lot limit', 'parking lot area', 'parking lot external',
+         'apartment_id', 'floor', 'angle', 'area', 'parking lot limit', 'parking lot area', 'parking lot external',
          'management fee', 'households', 'age of residents', 'builder id', 'completion date', 'built year',
          'schools', 'bus stations', 'subway stations', 'price']
+non_numeric_names = ['contract date', 'completion date']
 
 tuned_parameters = {
     'n_estimators': [100, 200, 400],
@@ -44,11 +48,11 @@ tuned_parameters = {
     # 'max_depth': [6]
 }
 
-data = pd.read_csv('../data/data_train.csv',
-                   names=names)
+def acc_scorer(model, X, y):
+    y_pred = model.predict(X)
+    return get_accuracy(y_pred, y.iloc)
 
-
-def get_X_y(data):
+def preprocess(data):
   data['angle'] = np.sin(data['angle'])
 
   data['contract date'] = pd.to_datetime(data['contract date'])
@@ -58,22 +62,16 @@ def get_X_y(data):
       data['contract date'] - data['contract date'].min())
 
   drop_columns = ['1st region id', '2nd region id',
-                  'road id', 'apartment id', 'builder id', 'built year']
+                  'road id', 'apartment_id', 'builder id', 'built year']
   data = data.drop(columns=drop_columns)
-
-  data = data.dropna()
+  drop_columns.append('price')
 
   def normalize(d):
     min_max_scaler = preprocessing.MinMaxScaler()
     d_scaled = min_max_scaler.fit_transform(d)
     return pd.DataFrame(d_scaled, columns=[item for item in names if item not in drop_columns])
-
-  y = data['price']
-  data = normalize(data)
-  X = data.drop(columns=['price'])
-
-  return X, y
-
+  
+  return normalize(data)
 
 def get_accuracy(y_pred, y_test):
   length = len(y_pred)
@@ -82,36 +80,88 @@ def get_accuracy(y_pred, y_test):
     _sum += abs((y_test[idx] - y_pred[idx]) / y_pred[idx])
   return 1 - (_sum / length)
 
+# Write Answer Sheet
+def write_answers(model_n, model_u):
+  data = pd.read_csv('../data/data_train.csv',
+                     names=[n for n in names if n is not 'price'])
+  data = fill_missing_values(data)
+  np.savetxt('../data/result_.csv', model_n.predict(data).reshape(-1,1))
+  np.savetxt('../data/result_unique.csv', model_u.predict(data).reshape(-1, 1))
 
 # Main
-logger = Logger('ensemble-test1')
+logger = Logger('final')
 
-X, y = get_X_y(data)
-X_names = list(X)
+data = pd.read_csv('../data/data_train.csv',
+                   names=names)
 
-# Create Train & test data
-train_indexes = np.random.rand(len(X)) <= 0.85
+# Fill NaN
+def fill_missing_values(data):
+  new_data = data.drop(columns=non_numeric_names)
+  # imputer = Imputer(missing_values=np.nan, strategy='median', axis=0)
+  imputer = SimpleImputer(missing_values=np.nan, strategy='median')
+  imputer = imputer.fit(new_data)
+  new_data = imputer.transform(new_data)
+  new_data = pd.DataFrame(new_data, columns=[n for n in names if n not in non_numeric_names])
+  for n in non_numeric_names:
+    new_data[n] = data[n]
+  return new_data
 
-X_train = X[train_indexes]
-X_test = X[~train_indexes]
-y_train = y[train_indexes]
-y_test = y[~train_indexes]
-# print(X_train.shape)
-# print(y_train.shape)
+data = fill_missing_values(data)
 
+y = data['price']
+X = data.drop(columns=['price'])
+# X_names = list(X)
 
-def train():
-  model1 = xgb.XGBRegressor(n_estimators=200, learning_rate=0.02, gamma=0, subsample=0.75,
+def get_unique_model():
+  xg = xgb.XGBRegressor(n_estimators=200, learning_rate=0.02, gamma=0, subsample=0.75,
                             colsample_bytree=1, max_depth=6)
-  model2 = ElasticNet(l1_ratio=0.95, alpha=0.15, max_iter=50000)
-  model3 = AdaBoostRegressor(
+  en = ElasticNet(l1_ratio=0.95, alpha=0.15, max_iter=50000)
+  ada = AdaBoostRegressor(
       learning_rate=0.01, loss='square', n_estimators=100)
+  lr = Ilbeom_Linear()
 
-  lst = [model1, model2, model3]
+  lst = [xg, en, ada, lr]
 
-  model = Ensemble(lst)
-  model.fit(X_train, y_train)
-  pickle.dump(model, open(f"../models/{model_name}.dat", "wb"))
+  return Ensemble(lst)
+
+model_n = xgb.XGBRegressor(n_estimators=200, learning_rate=0.02, gamma=0, subsample=0.75,
+                           colsample_bytree=1, max_depth=6)
+# model_n = Ilbeom_Linear()
+model_u = get_unique_model()
+
+def test_cv(model, X, y, n_splits=5):
+  # print(np.mean(cross_val_score(model, X, y, scoring=acc_scorer, cv=5, n_jobs=-1)))
+  skf = StratifiedKFold(n_splits=n_splits, shuffle=True)
+
+  results = []
+  for i, (train, test) in enumerate(skf.split(X, y)):
+    print("Running Fold", i+1, "/", 5)
+    X_train, X_test = X.iloc[train], X.iloc[test]
+    y_train, y_test = y.iloc[train], y.iloc[test]
+    model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+    results.append(get_accuracy(y_pred, y_test.iloc))
+  
+  print(f"result: {sum(results) / n_splits}")
+
+# test_cv(model_n, preprocess(X), y)
+test_cv(model_u, X, y)
+
+
+
+# def train():
+#   model1 = xgb.XGBRegressor(n_estimators=200, learning_rate=0.02, gamma=0, subsample=0.75,
+#                             colsample_bytree=1, max_depth=6)
+#   model2 = ElasticNet(l1_ratio=0.95, alpha=0.15, max_iter=50000)
+#   model3 = AdaBoostRegressor(
+#       learning_rate=0.01, loss='square', n_estimators=100)
+
+#   lst = [model1, model2, model3]
+
+#   model = Ensemble(lst)
+#   model.fit(X, y)
+#   pickle.dump(model, open(f"../models/{model_name}.dat", "wb"))
 
 
 def print_cross_val():
@@ -158,8 +208,8 @@ def print_importances(names):
 # importance = xgb.importance()
 
 
-train()
-test()
+# train()
+# test()
 # print_importances(names)
 # print_importances(X_names)
-#print_cross_val()
+# print_cross_val()
